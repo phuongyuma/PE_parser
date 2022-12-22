@@ -15,3 +15,5 @@
     - VirtualSize
 - Functions the file import and exports (incomplete)
 
+Command to run: 
+`./PE_Parser.exe <file path>`
