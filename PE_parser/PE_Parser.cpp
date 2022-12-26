@@ -4,20 +4,20 @@
 #include <cstring>
 
 LPVOID RvaToVa(LPVOID lpBase, DWORD dwRva) {
-	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)lpBase;
-	PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)lpBase + pDosHeader->e_lfanew);
-	PIMAGE_SECTION_HEADER pSectionHeader = IMAGE_FIRST_SECTION(pNtHeaders);
+		PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)lpBase;
+		PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)lpBase + pDosHeader->e_lfanew);
+		PIMAGE_SECTION_HEADER pSectionHeader = IMAGE_FIRST_SECTION(pNtHeaders);
 
-	for (unsigned int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++, pSectionHeader++) {
-		DWORD dwSectionStartRva = pSectionHeader->VirtualAddress;
-		DWORD dwSectionEndRva = dwSectionStartRva + max(pSectionHeader->SizeOfRawData, pSectionHeader->Misc.VirtualSize);
-		if (dwRva >= dwSectionStartRva && dwRva < dwSectionEndRva) {
-			DWORD dwDelta = pSectionHeader->VirtualAddress - pSectionHeader->PointerToRawData;
-			return (LPVOID)((BYTE*)lpBase + dwRva - dwDelta);
+		for (unsigned int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++, pSectionHeader++) {
+			DWORD dwSectionStartRva = pSectionHeader->VirtualAddress;
+			DWORD dwSectionEndRva = dwSectionStartRva + max(pSectionHeader->SizeOfRawData, pSectionHeader->Misc.VirtualSize);
+			if (dwRva >= dwSectionStartRva && dwRva < dwSectionEndRva) {
+				DWORD dwDelta = pSectionHeader->VirtualAddress - pSectionHeader->PointerToRawData;
+				return (LPVOID)((BYTE*)lpBase + dwRva - dwDelta);
+			}
 		}
+		return NULL;
 	}
-	return NULL;
-}
 int main(int argc, char* argv[]) {
 
 	HANDLE file;
@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
 	DWORD rawOffset;
 
 	//convert RVA to VA
-
+	
 	// open file
 	file = CreateFileA(argv[1], GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (file == INVALID_HANDLE_VALUE) {
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 	// allocate heap
 	fileSize = GetFileSize(file, NULL);
 	fileData = HeapAlloc(GetProcessHeap(), 0, fileSize);
-
+	
 	// read file bytes to memory
 	ReadFile(file, fileData, fileSize, &bytesRead, NULL);
 
@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 	dosHeader = (PIMAGE_DOS_HEADER)fileData;
 
 	// IMAGE_NT_HEADERS
-	imageNTHeaders = (PIMAGE_NT_HEADERS)((DWORD_PTR)(fileData)+dosHeader->e_lfanew); //fix
+	imageNTHeaders = (PIMAGE_NT_HEADERS)((DWORD_PTR)(fileData) + dosHeader->e_lfanew); //fix
 	printf("\n******* NT HEADERS *******\n");
 	printf("Signature: 0x%x\n", imageNTHeaders->Signature);
 	printf("AddressOfEntryPoint: 0x%x\n", imageNTHeaders->OptionalHeader.AddressOfEntryPoint);
@@ -66,8 +66,8 @@ int main(int argc, char* argv[]) {
 	// DATA_DIRECTORIES
 	printf("\n******* DATA DIRECTORIES *******\n");
 	// Why the parameter of DataDirectory is not true
-	printf("\tExport Directory Address: 0x%x; Size: 0x%x\n", imageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress, imageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size);
-	printf("\tImport Directory Address: 0x%x; Size: 0x%x\n", imageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress, imageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size);
+	printf("\tExport Directory Address: 0x%x; Size: 0x%x\n", imageNTHeaders->OptionalHeader.DataDirectory[-2].VirtualAddress, imageNTHeaders->OptionalHeader.DataDirectory[-2].Size);
+	printf("\tImport Directory Address: 0x%x; Size: 0x%x\n", imageNTHeaders->OptionalHeader.DataDirectory[-1].VirtualAddress, imageNTHeaders->OptionalHeader.DataDirectory[-1].Size);
 
 	// IMAGE_SECTION_HEADER
 	sectionHeader = IMAGE_FIRST_SECTION(imageNTHeaders);
@@ -82,8 +82,8 @@ int main(int argc, char* argv[]) {
 		printf("VirtualSize: 0x%x\n", sectionHeader[i].Misc.VirtualSize);
 	}
 
-
-	printf("\n******* DLL IMPORTS *******\n");
+	
+	printf("\n******* DLL IMPORTS *******\n");	
 	// list dll imports
 	PIMAGE_DATA_DIRECTORY importDirectory = &imageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 	PIMAGE_IMPORT_DESCRIPTOR importDescriptor = (PIMAGE_IMPORT_DESCRIPTOR)RvaToVa(fileData, importDirectory->VirtualAddress);
@@ -94,10 +94,32 @@ int main(int argc, char* argv[]) {
 			printf("\tFunction Name: %s\n", (char*)RvaToVa(fileData, thunkData[j].u1.AddressOfData + 2));
 		}
 	}
+	//list dll exports
+	printf("\n******* DLL EXPORTS *******\n");
+	PIMAGE_DATA_DIRECTORY exportDirectory = &imageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+	PIMAGE_EXPORT_DIRECTORY exportDirectoryA = (PIMAGE_EXPORT_DIRECTORY)RvaToVa(fileData, exportDirectory->VirtualAddress);
+	DWORD* nameArray = (DWORD*)RvaToVa(fileData, exportDirectoryA->AddressOfNames);
+	WORD* ordinalArray = (WORD*)RvaToVa(fileData, exportDirectoryA->AddressOfNameOrdinals);
+	DWORD* functionArray = (DWORD*)RvaToVa(fileData, exportDirectoryA->AddressOfFunctions);
+	for (int i = 0; i < exportDirectoryA->NumberOfNames; i++) {
+		printf("Function Name: %s\n", (char*)RvaToVa(fileData, nameArray[i]));
+	}
+	
 
 
 
 
-	return 0;
 
+
+
+
+	
+	
+	
+
+
+
+
+    return 0;
+	
 }
