@@ -13,7 +13,7 @@
     - RawSize
     - VirtualAddress
     - VirtualSize
-- Functions the file import and exports (incomplete)
+- Functions the file import and exports 
 
 Result when run with notepad.exe (64bit)
 
