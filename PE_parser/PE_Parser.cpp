@@ -10,7 +10,7 @@ LPVOID RvaToVa(LPVOID lpBase, DWORD dwRva) {
 
 		for (unsigned int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++, pSectionHeader++) {
 			DWORD dwSectionStartRva = pSectionHeader->VirtualAddress;
-			DWORD dwSectionEndRva = dwSectionStartRva + max(pSectionHeader->SizeOfRawData, pSectionHeader->Misc.VirtualSize);
+			DWORD dwSectionEndRva = dwSectionStartRva + std::max(pSectionHeader->SizeOfRawData, pSectionHeader->Misc.VirtualSize);
 			if (dwRva >= dwSectionStartRva && dwRva < dwSectionEndRva) {
 				DWORD dwDelta = pSectionHeader->VirtualAddress - pSectionHeader->PointerToRawData;
 				return (LPVOID)((BYTE*)lpBase + dwRva - dwDelta);
@@ -105,18 +105,6 @@ int main(int argc, char* argv[]) {
 		printf("Function Name: %s\n", (char*)RvaToVa(fileData, nameArray[i]));
 	}
 	
-
-
-
-
-
-
-
-
-	
-	
-	
-
 
 
 

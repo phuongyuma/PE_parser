@@ -15,6 +15,11 @@
     - VirtualSize
 - Functions the file import and exports 
 
+Command to compile and run
+> g++ -o test ./PE_parser/PE_Parser.cpp
+ 
+> test "./fileCheck/notepad32.exe"
+
 Result when run with notepad.exe (64bit)
 
 
